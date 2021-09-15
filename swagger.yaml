@@ -1,0 +1,1365 @@
+---
+openapi: 3.0.0
+servers:
+- url: http://localhost:4000
+  description: Kyso api server
+info:
+  description: |
+    This is Kyso's API documentation
+    # Filtering
+    Some GET endpoints can offer filtering. Through this mechanism, it is possible to set search conditions, in order to filter the results that will be returned by the specific endpoint.
+
+    The supported filtering operators are:
+    ### Equal
+    Find elements where a field is equal to a specific value.
+
+    For example: ``` GET /reports?name=sample-report``` returns all the reports with the name "sample-report".
+    ### Not equal
+    Find elements where a field is different to a specific value.
+
+    For example: ``` GET /reports?status!=completed``` returns all the reports that aren't completed.
+    ### Greater than
+    Find elements where a field is greater than a specific value.
+
+    For example: ``` GET /reports?views>0``` returns all the reports with more than 0 views.
+    ### Greather than or equal
+    Find elements where a field is greater than or equal to a specific value.
+
+    For example: ``` GET /reports?stars>=1``` returns all the reports with at least 1 star.
+    ### Lesser than
+    Find elements where a field is lesser than a specific value.
+
+    For example: ``` GET /reports?views<5``` returns all the reports with less than 5 views.
+    ### Lesser than or equal
+    Find elements where a field is lesser than or equal to a specific value.
+
+    For example: ``` GET /reports?stars<=1``` returns all the reports with 1 or less stars.
+    ### In
+    Find elements where a field has a value from a collection.
+
+    For example: ``` GET /reports?language=en,es``` returns all the reports that are in english or spanish.
+    ### Not in
+    Find elements where a field has a value that isn't in a collection.
+
+    For example: ``` GET /reports?topic!=engineering,marketing``` returns all the reports that aren't about engineering or marketing.
+    ### Exists
+    Find elements where a field exists.
+
+    For example: ``` GET /reports?contactData``` returns all the reports that have contact data.
+    ### Not exists
+    Find elements where a field doesn't exist.
+
+    For example: ``` GET /reports?!contactData``` returns all the reports that don't have contact data.
+    ### Like
+    Find elements where a field matches a regular expression.
+
+    For example: ``` GET /reports?description=/money/``` returns all the reports that mention money.
+    ### Not like
+    Find elements where a field doesn't match a regular expression.
+
+    For example: ``` GET /reports?created_date!=/2020/``` returns all the reports that weren't created during 2020.
+    # Projection
+    Some GET endpoints offer projection through the parameter **fields**. This parameter accepts a comma-separated list of fields, which indicate the data you want to receive. It's possible to prefix a - to indicate which fields you don't want to receive, but it's not possible to combine inclusion and exclusion mechanics.
+
+    For example, we can use it in the following ways:
+
+    ```
+    GET /reports?fields=id,name,views   // Return only the name, id and number of views
+    GET /reports?fields=-analytics      // Remove the analytics object from the result
+    ```
+    # Sorting
+    Sorting is supported in some GET endpoints (refer to the specific endpoint documentation). Sorting is specified through the **sort** parameter, and it accepts a comma-separated list of fields. It will default to sorting in ascending order, but descending order can be specified using a - prefix.
+
+    For example, we can use this to sort by ascending name and descending creation date:
+
+    ``` GET /reports?sort=name,-created_at ```
+    # Pagination
+    This API offers a simple pagination mechanism through page and per_page.
+
+    **Per_page** can be used to specify the amount of items to be returned in a GET endpoint.
+    Most endpoints already have a set limit and a maximum amount of elements that can be returned,
+    but this parameter allows a bit of flexibility.
+
+    For example, we can use the following parameter to receive only three reports.
+    ```
+    GET /reports?per_page=3
+    ```
+
+    **Page** allows skipping a certain amount of elements, and helps with implement pagination when strict limits exists.
+
+    For example, to implement pages of 10 elements each, we would use the following parameters:
+    ```
+    GET /reports?per_page=10           // First page
+    GET /reports?per_page=10&page=2   // Second page
+    GET /reports?per_page=10&page=3   // Third page
+    ```
+  version: 1.0.0
+  title: Kyso's API
+  contact:
+    email: jan@kyso.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+tags:
+- name: Comments
+  description: Operations that allow interaction with comments
+- name: Repos
+  description: Operations related to git repositories
+- name: Reports
+  description: Operations that allow interaction with reports
+- name: Teams
+  description: Operations that allow fetching and interacting with teams
+- name: Users
+  description: Operations that allow fetching and interacting with users
+paths:
+  "/v1/comments/{commentId}":
+    get:
+      tags:
+      - Comments
+      summary: Get a comment
+      operationId: getComment
+      description: 'Allows fetching content of a specific comment passing its name
+
+        '
+      parameters:
+      - in: path
+        name: commentId
+        description: Id of the comment to fetch
+        required: true
+        schema:
+          "$ref": "#/components/schemas/ObjectId"
+      responses:
+        '200':
+          description: Comment matching id
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Comment"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports":
+    get:
+      tags:
+      - Reports
+      summary: Search and fetch reports
+      operationId: getReports
+      description: |
+        By passing the appropiate parameters you can fetch and filter
+        the reports available to the authenticated user.
+
+        **This endpoint supports filtering.** Refer to the Report schema to see available options.
+      parameters:
+      - in: query
+        name: owner
+        description: Return only reports belonging to the specified owner. Can be
+          a user or a team
+        schema:
+          type: string
+      - in: query
+        name: per_page
+        description: Limits the amount of reports returned by the request
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 30
+      - in: query
+        name: page
+        description: Allows skipping some elements for pagination purposes
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: fields
+        description: Specify which fields of the reports will be returned
+        schema:
+          type: string
+      - in: query
+        name: sort
+        description: Decide how the returned reports are sorted
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Reports matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Report"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+    post:
+      tags:
+      - Reports
+      summary: Create a new report
+      operationId: createReport
+      description: |
+        By passing the appropiate parameters you can create a new
+        report referencing a git repository.
+      requestBody:
+        description: The report to create
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reports
+              properties:
+                reports:
+                  oneOf:
+                  - "$ref": "#/components/schemas/ReportBody"
+                  - type: array
+                    items:
+                      "$ref": "#/components/schemas/ReportBody"
+                team:
+                  type: string
+                  example: kyso-internal
+      responses:
+        '201':
+          description: Created report
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Report"
+                - "$ref": "#/components/schemas/BatchReportCreation"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}":
+    get:
+      tags:
+      - Reports
+      summary: Get a report
+      operationId: getReport
+      description: 'Allows fetching content of a specific report passing its full
+        name
+
+        '
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Report matching id
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Report"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+    delete:
+      tags:
+      - Reports
+      summary: Delete a report
+      operationId: deleteReport
+      description: 'Allows deleting a specific report
+
+        '
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Report deleted
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}/branches":
+    get:
+      tags:
+      - Reports
+      summary: Get branches of report imported from a git provider
+      operationId: getBranches
+      description: By passing in the appropriate options you can see all the branches
+        for the repository the specified report is linked to
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Branches of the specified report
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/RepositoryBranches"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}/comments":
+    get:
+      tags:
+      - Reports
+      summary: Get comments of a report
+      operationId: getReportComments
+      description: By passing in the appropriate options you can see all the comments
+        of a report
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Comments of the specified report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Comment"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}/{branch}*/commits":
+    get:
+      tags:
+      - Reports
+      summary: Get commits of a report imported from a git provider
+      operationId: getCommits
+      description: By passing in the appropriate options you can see the commits of
+        a branch for the repository the specified report is linked to
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: branch
+        description: Branch to start listing commits from. Accepts slashes.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Commits of the specified report branch
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Commits"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}/{branch}*/tree/{filePath}*":
+    get:
+      tags:
+      - Reports
+      summary: Explore a report tree
+      operationId: getReportFileHash
+      description: |
+        Get hash of a file for a given report.
+        If the file is a folder, will get information about the files in it too (non-recursively).
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: filePath
+        description: Path of the file to be consulted
+        required: true
+        allowEmptyValue: true
+        schema:
+          type: string
+      - in: path
+        name: branch
+        description: Branch of the repository to fetch data from. Accepts slashes.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Information about the requested file. Will be an array if filePath
+            is a folder.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/ReportFile"
+                - "$ref": "#/components/schemas/ReportFiles"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/reports/{reportOwner}/{reportName}/file/{hash}":
+    get:
+      tags:
+      - Reports
+      summary: Get content of a file
+      operationId: getRepoFileContent
+      description: 'By passing the hash of a file, get its raw content directly from
+        the source.
+
+        '
+      parameters:
+      - in: path
+        name: reportOwner
+        description: Name of the owner of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: reportName
+        description: Name of the report to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: hash
+        description: Hash of the file to access
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Content of the requested file
+          content:
+            application/json:
+              schema:
+                type: string
+                example: Lorem ipsum dolor sit amet consectetur adipiscing elit, facilisi
+                  nisi sociosqu semper parturient fusce donec, id nulla quis platea
+                  rutrum mi. Id commodo feugiat vel curae malesuada donec tristique
+                  fringilla penatibus hac class, maecenas odio urna placerat dui euismod
+                  potenti primis dapibus cum. Turpis vitae nullam etiam risus parturient
+                  per montes, nunc velit tortor aenean primis fringilla elementum
+                  tempus, vehicula fermentum nisi fusce imperdiet curabitur.
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/repos/{provider}":
+    get:
+      tags:
+      - Repos
+      summary: Get and search repositories
+      operationId: getRepositories
+      description: |
+        By passing in the appropriate options, you can search for
+        available repositories in the linked git provider account.
+      parameters:
+      - in: path
+        name: provider
+        description: Name of the provider of the repository to fetch
+        required: true
+        schema:
+          "$ref": "#/components/schemas/GitProvider"
+      - in: query
+        name: filter
+        description: Pass an optional search string for looking up repositories
+        required: false
+        allowEmptyValue: true
+        schema:
+          type: string
+          default: ''
+      - in: query
+        name: per_page
+        description: Maximum number of repositories that will be returned per page
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 30
+      - in: query
+        name: page
+        description: Number of the page to be displayed
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      responses:
+        '200':
+          description: Search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Repository"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/repos/{provider}/{repoOwner}/{repoName}":
+    get:
+      tags:
+      - Repos
+      summary: Get a single repository
+      operationId: getRepo
+      description: Fetch data for a repository, after specifying the owner and the
+        name of the repository
+      parameters:
+      - in: path
+        name: provider
+        description: Name of the provider of the repository to fetch
+        required: true
+        schema:
+          "$ref": "#/components/schemas/GitProvider"
+      - in: path
+        name: repoOwner
+        description: Name of the owner of the repository to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: repoName
+        description: Name of the repository to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The data of the specified repository
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Repository"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/repos/{provider}/{repoOwner}/{repoName}/{branch}*/tree":
+    get:
+      tags:
+      - Repos
+      summary: Explore a repository tree
+      operationId: getRepoTree
+      description: Get the tree of a specific repository.
+      parameters:
+      - in: path
+        name: provider
+        description: Name of the provider of the repository to fetch
+        required: true
+        schema:
+          "$ref": "#/components/schemas/GitProvider"
+      - in: path
+        name: repoOwner
+        description: Name of the owner of the repository to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: repoName
+        description: Name of the repository to fetch
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: branch
+        description: Branch to fetch content from. Accepts slashes.
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The tree of the specified repository
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ReportFiles"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/repos/{provider}/user":
+    get:
+      tags:
+      - Repos
+      summary: Get git logged user info
+      operationId: getGitUser
+      description: 'Get data about the git provider account that was linked with the
+        requesting user account.
+
+        '
+      parameters:
+      - in: path
+        name: provider
+        description: Name of the provider of the repository to fetch
+        required: true
+        schema:
+          "$ref": "#/components/schemas/GitProvider"
+      responses:
+        '200':
+          description: Search results matching criteria
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GitUser"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/teams/{teamName}":
+    get:
+      tags:
+      - Teams
+      summary: Get a team
+      operationId: getTeam
+      description: 'Allows fetching content of a specific team passing its name
+
+        '
+      parameters:
+      - in: path
+        name: teamName
+        description: Name of the team to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Team matching name
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Team"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      tags:
+      - Teams
+      summary: Update the specified team
+      operationId: updateTeam
+      description: 'Allows updating content from the specified team
+
+        '
+      parameters:
+      - in: path
+        name: teamName
+        description: Name of the team to fetch
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: Fields that will be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location:
+                  type: string
+                  example: Spain
+                link:
+                  type: string
+                  example: http://kyso.io
+                bio:
+                  type: string
+                  example: This is a sample bio.
+      responses:
+        '200':
+          description: Specified team data
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Team"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/user":
+    get:
+      tags:
+      - Users
+      summary: Get the authenticated user
+      operationId: getAuthenticatedUser
+      description: 'Allows fetching content of the authenticated user
+
+        '
+      responses:
+        '200':
+          description: Authenticated user data
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/User"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+    patch:
+      tags:
+      - Users
+      summary: Update the authenticated user
+      operationId: updateAuthenticatedUser
+      description: 'Allows updating content from the authenticated user
+
+        '
+      requestBody:
+        description: Fields that will be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: johnsmith@gmail.com
+                nickname:
+                  type: string
+                  example: John Smith
+                bio:
+                  type: string
+                  example: This is a sample bio.
+                accessToken:
+                  type: string
+                  example: 1234cf12f1d418a35218a8b2ca43124589abc5de
+      responses:
+        '200':
+          description: Authenticated user data
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/User"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/users":
+    get:
+      tags:
+      - Users
+      summary: Search and fetch users
+      operationId: getUsers
+      description: |
+        By passing the appropiate parameters you can fetch and filter
+        the users of the platform.
+
+        **This endpoint supports filtering.** Refer to the User schema to see available options.
+      parameters:
+      - in: query
+        name: per_page
+        description: Limits the amount of users returned by the request
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 30
+      - in: query
+        name: page
+        description: Allows skipping for pagination purposes
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: fields
+        description: Specify which fields of the users will be returned
+        schema:
+          type: string
+      - in: query
+        name: sort
+        description: Decide how the returned useres are sorted
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Users matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/User"
+        '400':
+          "$ref": "#/components/responses/InvalidInputError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+  "/v1/users/{userName}":
+    get:
+      tags:
+      - Users
+      summary: Get a user
+      operationId: getUser
+      description: 'Allows fetching content of a specific user passing its name
+
+        '
+      parameters:
+      - in: path
+        name: userName
+        description: Name of the user to fetch
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: User matching name
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/User"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+components:
+  responses:
+    AlreadyExistsError:
+      description: A resource with the same identification already exists
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+    ForbiddenError:
+      description: You are not allowed to perform this action
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+    InternalError:
+      description: Internal Error
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+    InvalidInputError:
+      description: Input is not correct
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+    NotFoundError:
+      description: The resource you are trying to access can't be found
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+    UnauthorizedError:
+      description: You need to be authenticated to execute this action
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/KysoError"
+  schemas:
+    BatchReportCreation:
+      type: array
+      items:
+        type: object
+        required:
+        - status
+        properties:
+          status:
+            type: string
+            enum:
+            - ERROR
+            - OK
+            example: OK
+          reason:
+            type: string
+            example: The specified name is already used by another report.
+          self_url:
+            "$ref": "#/components/schemas/HateoasReference"
+    Comment:
+      type: object
+      required:
+      - id
+      - text
+      - _p_user
+      - created_at
+      - updated_at
+      - child_comments
+      - self_url
+      properties:
+        id:
+          "$ref": "#/components/schemas/ObjectId"
+        text:
+          type: string
+          example: This is a sample comment
+        _p_user:
+          type: string
+          example: 1nAX4kKzUp
+        created_at:
+          type: string
+          example: '2020-11-06T11:43:09.138Z'
+        updated_at:
+          type: string
+          example: '2020-12-07T12:52:07.042Z'
+        child_comments:
+          type: array
+        self_url:
+          "$ref": "#/components/schemas/HateoasReference"
+    Commits:
+      type: array
+      items:
+        type: object
+        required:
+        - sha
+        - author
+        - date
+        - message
+        - html_url
+        - self_url
+        properties:
+          sha:
+            type: string
+            example: f378b41294ceab09a12d8f9099ab99015cb2f255
+          author:
+            type: object
+            required:
+            - name
+            - email
+            properties:
+              name:
+                type: string
+                example: john
+              email:
+                type: string
+                example: johndoe@gmail.com
+          date:
+            type: string
+            example: '2020-11-25T14:44:53Z'
+          message:
+            type: string
+            example: This is a sample commit.
+          html_url:
+            type: string
+            example: https://github.com/KyleOS/Data-Analysis/tree/f378b41294ceab09a12d8f9099ab99015cb2f255
+          self_url:
+            "$ref": "#/components/schemas/HateoasReference"
+    GitProvider:
+      type: string
+      enum:
+      - github
+      example: github
+    GitUser:
+      type: object
+      required:
+      - id
+      - login
+      - orgs
+      properties:
+        id:
+          type: number
+          example: 8451235
+        login:
+          type: string
+          example: KyleOS
+        orgs:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required:
+            - id
+            - login
+            properties:
+              id:
+                type: number
+                example: 45816093
+              login:
+                type: string
+                example: kyso-io
+    HateoasReference:
+      type: object
+      required:
+      - api
+      - ui
+      properties:
+        api:
+          type: string
+          example: http://api.kyso.io/v1/reports/john/testreport
+        ui:
+          type: string
+          example: "/reports/john/testreport"
+    KysoError:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          example: Something went wrong
+    ObjectId:
+      type: string
+      example: K1bOzHjEmN
+    Report:
+      type: object
+      required:
+      - id
+      - self_url
+      - branches_url
+      - _p_user
+      - owner
+      - provider
+      properties:
+        id:
+          "$ref": "#/components/schemas/ObjectId"
+        self_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        html_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        branches_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        tree_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        commits_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        name:
+          type: string
+          example: testreport
+        created_at:
+          type: string
+          example: '2020-11-06T11:43:09.138Z'
+        updated_at:
+          type: string
+          example: '2020-12-07T12:52:07.042Z'
+        views:
+          type: integer
+          example: 195
+        analytics:
+          type: object
+          nullable: true
+          properties:
+            views:
+              type: object
+              example:
+                2020-11: 142
+                2020-12: 53
+              additionalProperties:
+                type: integer
+            stars:
+              type: object
+              example:
+                2020-11: 23
+                2020-12: 14
+              additionalProperties:
+                type: integer
+            last_update:
+              example: '2020-12-07T09:18:44.987Z'
+        stars:
+          type: integer
+          example: 37
+        number_of_comments:
+          type: integer
+          example: 14
+        provider:
+          type: object
+          required:
+          - source
+          - owner
+          - name
+          - default_branch
+          - base_path
+          properties:
+            source:
+              type: string
+              example: github
+            owner:
+              type: string
+              example: KyleOS
+            name:
+              type: string
+              example: Data-Analysis
+            default_branch:
+              type: string
+              example: master
+            base_path:
+              type: string
+              example: dating
+        _p_user:
+          type: string
+          example: 1nAX4kKzUp
+        _p_team:
+          type: string
+          example: 4kZy0rSjLm
+        owner:
+          oneOf:
+          - "$ref": "#/components/schemas/User"
+          - "$ref": "#/components/schemas/Team"
+    ReportBody:
+      type: object
+      required:
+      - src
+      properties:
+        src:
+          type: object
+          required:
+          - provider
+          - owner
+          - name
+          - default_branch
+          properties:
+            provider:
+              "$ref": "#/components/schemas/GitProvider"
+            owner:
+              type: string
+              example: KyleOS
+            name:
+              type: string
+              example: Data-Analysis
+            default_branch:
+              type: string
+              example: master
+            path:
+              type: string
+              example: "./dating"
+    ReportFile:
+      type: object
+      required:
+      - type
+      - path
+      - hash
+      - self_url
+      properties:
+        type:
+          type: string
+          enum:
+          - file
+          - dir
+          example: file
+        path:
+          type: string
+          example: mock.ipynb
+        hash:
+          type: string
+          example: 64d72c0f2b507db036b7586c30b16a12b4e1d53b
+        self_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        html_url:
+          "$ref": "#/components/schemas/HateoasReference"
+    ReportFiles:
+      type: array
+      items:
+        "$ref": "#/components/schemas/ReportFile"
+    Repository:
+      type: object
+      required:
+      - id
+      - owner
+      - name
+      - full_name
+      - default_branch
+      - description
+      - is_private
+      - language
+      - pushed_at
+      - tree_url
+      properties:
+        id:
+          type: number
+          example: 213674146
+        owner:
+          type: string
+          example: KyleOS
+        name:
+          type: string
+          example: Data-Analysis
+        full_name:
+          type: string
+          example: KyleOS/Data-Analysis
+          pattern: "^.+\\/.+$"
+        default_branch:
+          type: string
+          example: master
+        description:
+          type: string
+          example: This is a sample repository.
+        is_private:
+          type: boolean
+          example: false
+        language:
+          type: string
+          example: Jupyter Notebook
+        pushed_at:
+          type: string
+          example: '2020-03-25T14:31:44Z'
+        tree_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        report_url:
+          "$ref": "#/components/schemas/HateoasReference"
+    RepositoryBranches:
+      type: array
+      items:
+        type: object
+        required:
+        - name
+        - commit
+        - content_url
+        - commits_url
+        - is_default
+        properties:
+          name:
+            type: string
+          commit:
+            type: string
+          content_url:
+            "$ref": "#/components/schemas/HateoasReference"
+          commits_url:
+            "$ref": "#/components/schemas/HateoasReference"
+          is_default:
+            type: boolean
+    User:
+      type: object
+      required:
+      - self_url
+      - email
+      - username
+      - nickname
+      - id
+      properties:
+        self_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        email:
+          type: string
+          example: johndoe@gmail.com
+        username:
+          type: string
+          example: johndoe@gmail.com
+        nickname:
+          type: string
+          example: John
+        id:
+          "$ref": "#/components/schemas/ObjectId"
+        avatar_url:
+          type: string
+          example: https://avatars.githubusercontent.com/u/30287057?s=60&v=4
+        email_verified:
+          type: boolean
+          example: 'true'
+        session_token:
+          type: string
+          example: r:ab183a0f7c9e2661adc17ea1dc0af8e6
+    Team:
+      type: object
+      required:
+      - self_url
+      - name
+      - id
+      properties:
+        self_url:
+          "$ref": "#/components/schemas/HateoasReference"
+        name:
+          type: string
+          example: kyso-internal
+        id:
+          "$ref": "#/components/schemas/ObjectId"
+        avatar_url:
+          type: string
+          example: https://d1kser01wv8mbw.cloudfront.net/ff167ccf681b46c9ed5f10287560bd92_file-6Hw4IgUUql-profile.jpg
+        bio:
+          type: string
+          example: This is a sample team.
+        link:
+          type: string
+          example: http://sampleteam.io
+        location:
+          type: string
+          example: Planet Earth
