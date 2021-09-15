@@ -111,6 +111,10 @@ tags:
   description: Operations that allow fetching and interacting with teams
 - name: Users
   description: Operations that allow fetching and interacting with users
+- name: report_model
+  x-displayName: The Report Model
+  description: |
+    <SchemaDefinition schemaRef="#/components/schemas/Report" />
 paths:
   "/v1/comments/{commentId}":
     get:
